@@ -17,11 +17,10 @@ The build badge doesn't send the user's PAT, so it breaks on private Azure DevOp
 1. Change `AzureDevOpsBuild` to **`extends AzureDevOpsBase`** so it inherits `static auth` and the authenticated `fetch`.
 2. Replace the SVG scrape with a JSON call to `GET /_apis/build/builds?definitions={definitionId}&$top=1&branchName=refs/heads/{branch}` via the base's authenticated `fetch`.
 3. Read `value[0].status` + `value[0].result` and map them to the existing build-status badge output (reuse `renderBuildStatusBadge`).
-4. **Decide `stage` / `job`** (currently supported via `?stage=` / `?job=`): the builds-list API returns whole-build status only. Options:
-   - **(a)** replicate per-stage/job via Azure's **Timeline API** (`/_apis/build/builds/{buildId}/timeline`, which returns records typed `Stage` / `Job` with their own `result`), or
-   - **(b)** scope them out of this PR and raise it with the maintainer.
-
-   Current lean: **(a)** to avoid regressing existing behavior, with **(b)** as a fallback if the maintainer prefers a smaller PR.
+4. **`stage` / `job` — DECIDED: keep them (option a).** Currently supported via `?stage=` / `?job=`; the builds-list API returns whole-build status only, so per-stage/job parity needs Azure's **Timeline API** (`/_apis/build/builds/{buildId}/timeline`, which returns records typed `Stage` / `Job` with their own `result`).
+   - **Rationale:** the maintainer's stated concern is replicating existing functionality via the API (see Risks), so preserving stage/job parity outranks the "only copy siblings" heuristic. Dropping it would regress behavior the issue did not ask to remove.
+   - **Shape:** reuse `getLatestCompletedBuildId(...)` for the build id (same as siblings); when `stage`/`job` is given, fetch the Timeline and read the matching record's `result`; otherwise use the overall build `result`.
+   - Fallback **(b)** (scope out, raise with maintainer) only if review pushes back on PR size.
 
 5. Add `azure-devops-build.spec.js` — the build badge currently has only a `.tester.js`, no unit spec.
 
@@ -51,5 +50,5 @@ shields tests services two ways; I'll use both:
 
 ## Risks / open questions
 
-- **stage/job parity** — the maintainer's explicit concern about replicating existing functionality via the API. Resolve in step 4.
+- **stage/job parity** — the maintainer's explicit concern about replicating existing functionality via the API. **Resolved (step 4): keep stage/job via the Timeline API.**
 - **`result` → badge mapping** — reuse shields' existing build-status mapping for consistency with the other CI badges.
